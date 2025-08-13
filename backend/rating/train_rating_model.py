@@ -1,69 +1,57 @@
 import pandas as pd
-import numpy as np
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestRegressor
 import pickle
-from sklearn.preprocessing import LabelEncoder
 
-# Load the dataset
-df = pd.read_csv("C:/Users/zeelp/Desktop/research p 2/data/zomato.csv", encoding='latin1')
+# Load dataset
+df = pd.read_csv("C:/Users/zeelp/Desktop/Project-2/data/zomato.csv", encoding='latin1')
 
-# Drop unnecessary columns
-df = df.drop(['dish_liked', 'phone', 'reviews_list', 'menu_item', 'listed_in(city)'], axis=1, errors='ignore')
+# Select relevant features
+df = df[['location', 'approx_cost(for two people)', 'cuisines', 'rest_type', 'book_table', 'rate']]
 
-# Drop rows with missing values in target column
-df = df[df['rate'].notnull()]
-
-# Clean and convert 'rate' column
-df['rate'] = df['rate'].astype(str).str.strip().str.split('/').str[0]
-df = df[~df['rate'].isin(['NEW', '-', ''])]  # Remove invalid entries
+# Clean 'rate' column (remove '/5' and convert to float)
+df['rate'] = df['rate'].str.replace('/5', '', regex=False)
 df['rate'] = pd.to_numeric(df['rate'], errors='coerce')
 
-# Clean 'votes'
-df['votes'] = df['votes'].astype(str).str.replace(',', '', regex=False)
-df['votes'] = pd.to_numeric(df['votes'], errors='coerce')
+# Clean 'approx_cost(for two people)' column (remove commas and convert to float)
+df['approx_cost(for two people)'] = (
+    df['approx_cost(for two people)']
+    .astype(str)
+    .str.replace(',', '', regex=False)
+)
+df['approx_cost(for two people)'] = pd.to_numeric(df['approx_cost(for two people)'], errors='coerce')
 
-# Clean cost column
-df['approx_cost'] = df['approx_cost(for two people)'].astype(str).str.replace(',', '', regex=False)
-df['approx_cost'] = pd.to_numeric(df['approx_cost'], errors='coerce')
-
-# Drop rows with any NaN after cleaning
-df = df.dropna()
-
-# Select final feature columns
-features = ['online_order', 'book_table', 'location', 'cuisines', 'votes', 'approx_cost']
-df = df[features + ['rate']]
-
-# Encode binary Yes/No columns
-df['online_order'] = df['online_order'].map({'Yes': 1, 'No': 0})
-df['book_table'] = df['book_table'].map({'Yes': 1, 'No': 0})
+# Drop rows with missing values
+df.dropna(inplace=True)
 
 # Encode categorical columns
 le_location = LabelEncoder()
 le_cuisines = LabelEncoder()
+le_rest_type = LabelEncoder()
+le_book_table = LabelEncoder()
 
-df['location'] = le_location.fit_transform(df['location'].astype(str).str.strip())
-df['cuisines'] = le_cuisines.fit_transform(df['cuisines'].astype(str).str.strip())
+df['location'] = le_location.fit_transform(df['location'])
+df['cuisines'] = le_cuisines.fit_transform(df['cuisines'])
+df['rest_type'] = le_rest_type.fit_transform(df['rest_type'])
+df['book_table'] = le_book_table.fit_transform(df['book_table'])
 
-# Prepare X and y
-X = df[features]
+# Features & target
+X = df[['location', 'approx_cost(for two people)', 'cuisines', 'rest_type', 'book_table']]
 y = df['rate']
 
 # Train-test split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Train the model
-model = RandomForestRegressor(n_estimators=100, random_state=42)
+# Train model
+model = RandomForestRegressor()
 model.fit(X_train, y_train)
 
-# Save the model and encoders
-with open('model.pkl', 'wb') as f:
-    pickle.dump(model, f)
+# Save model and encoders
+pickle.dump(model, open("model.pkl", "wb"))
+pickle.dump(le_location, open("le_location.pkl", "wb"))
+pickle.dump(le_cuisines, open("le_cuisines.pkl", "wb"))
+pickle.dump(le_rest_type, open("le_rest_type.pkl", "wb"))
+pickle.dump(le_book_table, open("le_book_table.pkl", "wb"))
 
-with open('location_encoder.pkl', 'wb') as f:
-    pickle.dump(le_location, f)
-
-with open('cuisines_encoder.pkl', 'wb') as f:
-    pickle.dump(le_cuisines, f)
-
-print("✅ Model training complete and saved.")
+print("Model trained and saved!")
